@@ -2,145 +2,127 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-
-int main()
-{
-    int n, a[50], b[50], i, j, t, mode;
-
-    printf("Enter number of integers (1-50): ");
-    scanf("%d", &n);
-
-    if (n < 1 || n > 50)
-    {
-        printf("Invalid number of integers!\n");
-        return 1;
-    }
-
-    printf("Enter %d integers:\n", n);
-
-    for (i = 0; i < n; i++)
-    {
-        scanf("%d", &a[i]);
-    }
-
-    printf("\n1. Normal Process");
-    printf("\n2. Zombie Process");
-    printf("\n3. Orphan Process");
-    printf("\nEnter your choice: ");
-    scanf("%d", &mode);
-
-    if (mode < 1 || mode > 3)
-    {
-        printf("Invalid choice!\n");
-        return 1;
-    }
-
-    for (i = 0; i < n; i++)
-    {
-        b[i] = a[i];
-    }
-
-    pid_t p = fork();
-
-    if (p < 0)
-    {
-        perror("fork failed");
-        return 1;
-    }
-
-    // CHILD PROCESS
-    if (p == 0)
-    {
-        printf("\nChild Process Started");
-        printf("\nChild PID: %d\n", getpid());
-
-        // Selection Sort in child process
-        for (i = 0; i < n - 1; i++)
-        {
-            for (j = i + 1; j < n; j++)
-            {
-                if (b[i] > b[j])
-                {
-                    t = b[i];
-                    b[i] = b[j];
-                    b[j] = t;
-                }
-            }
-        }
-
-        printf("Child Sorted Array: ");
-
-        for (i = 0; i < n; i++)
-        {
-            printf("%d ", b[i]);
-        }
-
-        printf("\n");
-
-        if (mode == 3)
-        {
-            sleep(5);
-
-            printf("Orphan Child PID: %d\n", getpid());
-            printf("Orphan Child New PPID: %d\n", getppid());
-        }
-
-        exit(0);
-    }
-
-    // PARENT PROCESS
-    else
-    {
-        printf("\nParent Process Started");
-        printf("\nParent PID: %d\n", getpid());
-
-        if (mode == 2)
-        {
-            printf("Parent sleeping for 10 seconds...\n");
-
-            sleep(10);
-
-            printf("Parent woke up.\n");
-            printf("The child may have been a zombie during this time.\n");
-        }
-
-        if (mode == 3)
-        {
-            printf("Parent is exiting without waiting.\n");
-            printf("The child may become an orphan.\n");
-            return 0;
-        }
-
-        // Bubble Sort in parent process
-        for (i = 0; i < n - 1; i++)
-        {
-            for (j = 0; j < n - 1 - i; j++)
-            {
-                if (a[j] > a[j + 1])
-                {
-                    t = a[j];
-                    a[j] = a[j + 1];
-                    a[j + 1] = t;
-                }
-            }
-        }
-
-        printf("Parent Sorted Array: ");
-
-        for (i = 0; i < n; i++)
-        {
-            printf("%d ", a[i]);
-        }
-
-        printf("\n");
-
-        // Wait for the child process
-        wait(NULL);
-
-        printf("Parent collected child exit status.\n");
-    }
-
-    return 0;
+#define MAX 100
+// Bubble Sort Algorithm (Used by Parent Process)
+void bubble_sort(int arr[], int n) {
+int i, j, temp;
+for (i = 0; i < n - 1; i++) {
+for (j = 0; j < n - i - 1; j++) {
+if (arr[j] > arr[j + 1]) {
+temp = arr[j];
+arr[j] = arr[j + 1];
+arr[j + 1] = temp;
 }
-
+}
+}
+}
+// Selection Sort Algorithm (Used by Child Process)
+void selection_sort(int arr[], int n) {
+int i, j, min_idx, temp;
+for (i = 0; i < n - 1; i++) {
+min_idx = i;
+for (j = i + 1; j < n; j++) {
+if (arr[j] < arr[min_idx])
+min_idx = j;
+}
+temp = arr[min_idx];
+arr[min_idx] = arr[i];
+arr[i] = temp;
+}
+}
+// Function to print array elements
+void print_array(int arr[], int n) {
+for (int i = 0; i < n; i++) {
+printf("%d ", arr[i]);
+}
+printf("\n");
+}
+int main() {
+int arr[MAX], child_arr[MAX], parent_arr[MAX];
+int n, choice;
+printf("Enter the number of integers to sort: ");
+if (scanf("%d", &n) != 1 || n <= 0) {
+printf("Invalid array size.\n");
+return 1;
+}
+printf("Enter %d integers: ", n);
+for (int i = 0; i < n; i++) {
+scanf("%d", &arr[i]);
+child_arr[i] = arr[i]; // Copy for child
+parent_arr[i] = arr[i]; // Copy for parent
+}
+printf("\n--- Choose Execution Mode ---\n");
+printf("1. Normal Execution (Parent waits for Child using
+wait())\n");
+printf("2. Demonstrate Zombie State\n");
+printf("3. Demonstrate Orphan State\n");
+printf("Enter choice (1-3): ");
+scanf("%d", &choice);
+pid_t pid = fork(); // Create child process
+if (pid < 0) {
+perror("Fork failed");
+exit(1);
+}
+else if (pid == 0) {
+// --- CHILD PROCESS ---
+printf("\n[Child] Child Process Started. PID: %d, Parent PID:
+%d\n", getpid(), getppid());
+if (choice == 3) {
+// Orphan state demo: Child sleeps while parent terminates
+immediately
+printf("[Child] Sleeping for 5 seconds to become an
+ORPHAN...\n");
+sleep(5);
+printf("\n[Child] Awake! My new Parent PID (Adopted by
+systemd/init): %d\n", getppid());
+}
+printf("[Child] Sorting array using Selection Sort...\n");
+selection_sort(child_arr, n);
+printf("[Child] Sorted array: ");
+print_array(child_arr, n);
+printf("[Child] Child Process Exiting.\n");
+exit(0);
+}
+else {
+// --- PARENT PROCESS ---
+printf("\n[Parent] Parent Process Started. PID: %d, Child PID:
+%d\n", getpid(), pid);
+if (choice == 1) {
+// Normal Execution
+printf("[Parent] Sorting array using Bubble Sort...\n");
+bubble_sort(parent_arr, n);
+printf("[Parent] Sorted array: ");
+print_array(parent_arr, n);
+printf("[Parent] Waiting for Child process to finish via
+wait()...\n");
+wait(NULL); // Reaps the child process safely
+printf("[Parent] Child process reaped successfully. Parent
+Exiting.\n");
+}
+else if (choice == 2) {
+// Zombie state demo: Parent finishes sorting and sleeps
+without calling wait()
+printf("[Parent] Sorting array using Bubble Sort...\n");
+bubble_sort(parent_arr, n);
+printf("[Parent] Sleeping for 10 seconds without calling
+wait()...\n");
+printf("[Parent] Open another terminal now and run 'ps -eo
+pid,ppid,stat,cmd | grep Z' to see the ZOMBIE child!\n");
+sleep(10);
+printf("[Parent] Parent waking up and reaping child now.\n");
+wait(NULL);
+printf("[Parent] Parent Exiting.\n");
+}
+else if (choice == 3) {
+// Orphan state demo: Parent exits immediately
+printf("[Parent] Sorting array using Bubble Sort...\n");
+bubble_sort(parent_arr, n);
+printf("[Parent] Parent exiting immediately to leave child
+ORPHANED.\n");
+exit(0);
+}
+}
+return 0;
+}
